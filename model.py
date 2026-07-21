@@ -196,10 +196,11 @@ def _flow_bound(ag: dict) -> float:
 
 
 def _agent_lp(d, aid, steps, pvav, dfix, dshb, dheat, e0, cyclic_season,
-              carbon_price, dh_price, fix=None, regularization: float = REG):
-    """Single prosumer problem over `steps`. In rolling operation the planned
-    battery charge/discharge is fixed in the realization pass; other actions
-    remain recourse decisions."""
+              carbon_price, dh_price, fix=None, regularization: float = REG, terminal=None):
+    """Single prosumer problem over `steps`. In rolling operation the committed
+    battery charge/discharge is fixed in the realization pass through `fix`; grid
+    exchange, dispatch, and the within-day shiftable load remain real-time recourse.
+    `terminal` pins the end-of-window battery state."""
     ag = d.agents[aid]; dt = d.dt
     n = len(steps)
     shcap = C.W_SHIFT * (float(np.sum(dshb)) / max(n, 1)) if ag["flex"] else 0.0
@@ -240,6 +241,8 @@ def _agent_lp(d, aid, steps, pvav, dfix, dshb, dheat, e0, cyclic_season,
     if fix is not None:
         for k in range(n):
             m.addConstr(chB[k] == fix["chB"][k]); m.addConstr(disB[k] == fix["disB"][k])
+    if terminal is not None:
+        m.addConstr(eB[n] == terminal["eB"])
     w = d.days_weight * d.dt
     obj = gp.QuadExpr()
     for k in range(n):
@@ -283,21 +286,32 @@ def _independent(d, mode, carbon_price, dh_price, seed=0, regularization: float 
                 agg[k] += r[k]
         return agg, None, None
     err = ERR_PRIV if mode == "de0" else ERR_SHARED
-    common = {q: np.clip(1 + rng.normal(0, err, T), 0.2, None) for q in ["pv", "load", "heat"]}
+    windows = list(range(0, T, horizon))
+    nwin = len(windows)
+    # Day-varying forecast: a fresh draw for each daily window. For M1 the draw is
+    # shared across agents (the platform distributes one common forecast); for DE0
+    # it is private and independent per agent. M1 therefore reflects the combined
+    # value of higher accuracy and shared consistency.
+    common_fe = None
+    if mode == "m1":
+        common_fe = [{q: np.clip(1 + rng.normal(0, err, min(d0 + horizon, T) - d0), 0.2, None)
+                      for q in ["pv", "load", "heat"]} for d0 in windows]
     for a in A:
         ag = d.agents[a]
-        if mode == "de0":
-            fe = {q: np.clip(1 + rng.normal(0, err, T), 0.2, None) for q in ["pv", "load", "heat"]}
-        else:
-            fe = common
         e0 = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]}
-        for d0 in range(0, T, horizon):
+        for wi, d0 in enumerate(windows):
             steps = list(range(d0, min(d0 + horizon, T)))
-            sl = slice(d0, d0 + len(steps))
+            sl = slice(d0, d0 + len(steps)); L = len(steps)
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
-            plan = _agent_lp(d, a, steps, pv_t * fe["pv"][sl], df_t * fe["load"][sl],
-                             ds_t * fe["load"][sl], dh_t * fe["heat"][sl], e0, False, carbon_price, dh_price,
-                             regularization=regularization)
+            fe = common_fe[wi] if mode == "m1" else {q: np.clip(1 + rng.normal(0, err, L), 0.2, None)
+                                                     for q in ["pv", "load", "heat"]}
+            terminal = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]} if wi == nwin - 1 else None
+            # plan on the day-ahead forecast, committing the battery schedule
+            plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
+                             ds_t * fe["load"], dh_t * fe["heat"], e0, False, carbon_price, dh_price,
+                             regularization=regularization, terminal=terminal)
+            # realize on truth with the committed battery schedule fixed; grid exchange,
+            # dispatch, and within-day shiftable load are real-time recourse
             real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, carbon_price, dh_price,
                              fix=plan, regularization=regularization)
             for k in keys:

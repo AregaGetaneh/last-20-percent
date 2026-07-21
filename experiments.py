@@ -410,18 +410,19 @@ def run_agent_table(pid="virum"):
     d = build_pilot_data(pid); A = list(d.agents.keys()); T = d.T
     w = d.days_weight * d.dt; H = d.hosting_limit
     rng = np.random.default_rng(C.SEED + 0)
-    _ = {q: np.clip(1 + rng.normal(0, M.ERR_PRIV, T), 0.2, None) for q in ["pv", "load", "heat"]}
     keys = ["imp", "exp", "PV", "chB", "disB", "DH"]
     ser = {a: {k: np.zeros(T) for k in keys} for a in A}
+    windows = list(range(0, T, 24)); nwin = len(windows)
     for a in A:
         ag = d.agents[a]
-        fe = {q: np.clip(1 + rng.normal(0, M.ERR_PRIV, T), 0.2, None) for q in ["pv", "load", "heat"]}
         e0 = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]}
-        for d0 in range(0, T, 24):
-            steps = list(range(d0, min(d0 + 24, T))); sl = slice(d0, d0 + len(steps))
+        for wi, d0 in enumerate(windows):
+            steps = list(range(d0, min(d0 + 24, T))); sl = slice(d0, d0 + len(steps)); L = len(steps)
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
-            plan = _agent_lp(d, a, steps, pv_t * fe["pv"][sl], df_t * fe["load"][sl],
-                             ds_t * fe["load"][sl], dh_t * fe["heat"][sl], e0, False, CARBON_PRICE, DH_PRICE)
+            fe = {q: np.clip(1 + rng.normal(0, M.ERR_PRIV, L), 0.2, None) for q in ["pv", "load", "heat"]}
+            terminal = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]} if wi == nwin - 1 else None
+            plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
+                             ds_t * fe["load"], dh_t * fe["heat"], e0, False, CARBON_PRICE, DH_PRICE, terminal=terminal)
             real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, CARBON_PRICE, DH_PRICE, fix=plan)
             for k in keys:
                 ser[a][k][sl] += real[k]
@@ -641,6 +642,36 @@ def run_reg_deployable(pid="virum"):
     return rows
 
 
+def run_uncertainty_fixed(pid="virum", seeds=100):
+    """Fixed-capacity Monte Carlo: installed PV held at the base value while the
+    annual yield varies with the weather draw. Complements the re-sized study as a
+    genuine fixed-district robustness test."""
+    print(f"[uncertainty-fixed] pilot={pid} ({seeds} seeds)")
+    base_kwp = {a: v["pv_kwp"] for a, v in build_pilot_data(pid).agents.items()}
+    recs = []
+    for s in range(seeds):
+        d = build_pilot_data(pid, seed=C.SEED + 101 * s)
+        for a, v in d.agents.items():
+            if v["pv_kwp"] > 1e-9:
+                v["PVavail"] = v["PVavail"] * (base_kwp[a] / v["pv_kwp"]); v["pv_kwp"] = base_kwp[a]
+        wf, _ = solve_waterfall(d)
+        m3 = wf["DE_M3"]
+        c = {k: wf[k]["cost_kEUR"] for k in ["DE0", "DE_M1", "DE_IND", "DE_M2", "DE_M3"]}
+        c["SP"] = c["DE_M3"]; gap = c["DE0"] - c["SP"]
+        c0 = wf["DE0"]["curt_MWh"]; c3 = wf["DE_M3"]["curt_MWh"]
+        recs.append(dict(seed_idx=s, cost_SP=c["SP"], SSR=m3["SSR"], gap_kEUR=gap, gap_pct=100 * gap / c["DE0"],
+                         curt_SP=m3["curt_MWh"], m1_recovery_kEUR=c["DE0"] - c["DE_M1"],
+                         m1_recovery_pct=100 * (c["DE0"] - c["DE_M1"]) / gap if gap > 1e-6 else 0.0,
+                         curt_reduction_pct=100 * (c0 - c3) / c0 if c0 > 1e-6 else 0.0,
+                         share_info=(c["DE0"] - c["DE_M1"]) / gap if gap > 1e-6 else 0.0,
+                         share_foresight=(c["DE_M1"] - c["DE_IND"]) / gap if gap > 1e-6 else 0.0,
+                         share_pool=(c["DE_IND"] - c["DE_M2"]) / gap if gap > 1e-6 else 0.0,
+                         share_grid=(c["DE_M2"] - c["DE_M3"]) / gap if gap > 1e-6 else 0.0,
+                         rank_ok=int(c["DE0"] >= c["DE_M1"] - 1e-6 >= c["DE_M2"] - 1e-6 >= c["DE_M3"] - 1e-6 >= c["SP"] - 1e-6)))
+    _save("uncertainty_fixed.json", _uncert_stats(recs, pid))
+    return _uncert_stats(recs, pid)["stats"]
+
+
 def run_recycling(pid="virum"):
     """Congestion-revenue recycling and individual rationality. Returns each
     agent's M3 bill after equal per-capita and payment-proportional recycling and
@@ -672,6 +703,7 @@ if __name__ == "__main__":
     run_pareto(C.DEEP_PILOTS)
     run_sensitivity("virum")
     run_uncertainty("virum", seeds=100)
+    run_uncertainty_fixed("virum", seeds=100)
     run_fullyear("virum")
     run_forecast("virum")
     run_baseline("virum")
