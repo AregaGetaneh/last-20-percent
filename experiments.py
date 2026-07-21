@@ -626,6 +626,46 @@ def run_convex_audit(pid="virum"):
         regularization_sensitivity=reg_rows, order_audit=order))
 
 
+def run_reg_deployable(pid="virum"):
+    """Regularizer sensitivity of the deployable stages DE0 and M1. The costs and
+    the information recovery should be stable across the coupling-flow regularizer."""
+    print(f"[reg-deployable] pilot={pid}")
+    d = build_pilot_data(pid)
+    rows = []
+    for eps in [1e-7, 1e-6, 1e-5]:
+        wf, _ = solve_waterfall(d, regularization=eps)
+        de0 = wf["DE0"]["cost_kEUR"]; m1 = wf["DE_M1"]["cost_kEUR"]; gap = de0 - wf["DE_M3"]["cost_kEUR"]
+        rows.append(dict(epsilon=eps, de0_kEUR=de0, m1_kEUR=m1, info_kEUR=de0 - m1,
+                         m1_recovery_pct=100 * (de0 - m1) / gap if gap > 1e-6 else 0.0, gap_kEUR=gap))
+    _save("regularization_deployable.json", rows)
+    return rows
+
+
+def run_recycling(pid="virum"):
+    """Congestion-revenue recycling and individual rationality. Returns each
+    agent's M3 bill after equal per-capita and payment-proportional recycling and
+    whether individual rationality is restored relative to DE0. Requires agent_table.json."""
+    print(f"[recycling] pilot={pid}")
+    d = build_pilot_data(pid); w = d.days_weight * d.dt; A = list(d.agents.keys())
+    _, pi, tau, pa = _joint(d, True, CARBON_PRICE, DH_PRICE, detail=True)
+    m3 = {a: pa[a]["bill"] for a in A}
+    cong = {a: float(np.sum(w * tau * (pa[a]["exp"] - pa[a]["imp"]))) / 1000 for a in A}
+    R = sum(cong.values()); n = len(A)
+    de0 = {r["agent"]: r["de0_kEUR"] for r in json.load(open(os.path.join(RESULTS, "agent_table.json")))["rows"]}
+    rows = []
+    for a in A:
+        eq = m3[a] - R / n
+        prop = m3[a] - cong[a]
+        rows.append(dict(agent=a, de0=de0[a], m3=m3[a], cong=cong[a], m3_eq=eq, m3_prop=prop,
+                         ir_m3=int(m3[a] <= de0[a] + 1e-6), ir_eq=int(eq <= de0[a] + 1e-6),
+                         ir_prop=int(prop <= de0[a] + 1e-6)))
+    _save("recycling.json", dict(pid=pid, revenue_kEUR=R, n=n, rows=rows,
+                                 n_ir_m3=sum(r["ir_m3"] for r in rows),
+                                 n_ir_eq=sum(r["ir_eq"] for r in rows),
+                                 n_ir_prop=sum(r["ir_prop"] for r in rows)))
+    return rows
+
+
 if __name__ == "__main__":
     t0 = time.time()
     run_main()
@@ -637,6 +677,8 @@ if __name__ == "__main__":
     run_baseline("virum")
     run_marketpower()
     run_agent_table("virum")
+    run_recycling("virum")
+    run_reg_deployable("virum")
     if cp is not None:
         run_convex_audit("virum")
     print(f"\nAll experiments done in {time.time()-t0:.0f}s")

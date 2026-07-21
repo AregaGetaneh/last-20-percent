@@ -26,7 +26,7 @@ TEX_NAME = {"virum": "Virum", "limerick": "Limerick", "vasteras": "V\\\"aster\\a
 FIG_NAME = {"virum": "Virum (DK)", "limerick": "Limerick (IE)", "vasteras": "Västerås (SE)",
             "graz": "Graz–Berlin (DE-AT)", "turkey": "Turkey", "romania": "Romania"}
 VARS = ["DE0", "DE_M1", "DE_IND", "DE_M2", "DE_M3"]
-VLAB = ["DE0", "+Info", "+Fore", "+Pool", "+Grid"]
+VLAB = ["DE0", "+Info", "+Diag", "+Pool", "+Grid"]
 
 plt.rcParams.update({
     "font.size": 9, "axes.spines.top": False, "axes.spines.right": False,
@@ -50,6 +50,12 @@ def _save_fig(fig, name):
     fig.savefig(os.path.join(FIGURES, name + ".png"))
     plt.close(fig)
     print(f"  {name}")
+
+
+def _annual_weights(T):
+    hps = C.HOURS_PER_SEASON
+    w = np.concatenate([[C.SEASON_WEIGHT[s] / (hps / 24.0)] * hps for s in C.SEASONS]) * C.DT
+    return w[:T]
 
 
 # --------------------------------------------------------------------------
@@ -96,7 +102,7 @@ def t_waterfall(main):
                     f"{c['DE_M3']:.1f} & {c['SP']:.1f} & {gap0:.2f} & {rec:.0f}\\% \\\\")
     _write_tex("tab_waterfall.tex",
                "\\begin{tabular}{lrrrrrrrr}\n\\toprule\n"
-               "District & DE0 & +Info & +Foresight & +Pool & +Grid & SP & Gap & M1 rec. \\\\\n"
+               "District & DE0 & +Info & +Diag & +Pool & +Grid & SP & Gap & M1 rec. \\\\\n"
                " & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & \\\\\n\\midrule\n"
                + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
 
@@ -148,7 +154,7 @@ def t_marketpower():
             f"{r['cong_payment_kEUR']:.2f} & {r['dev_gain_bound_pct']:.1f} \\\\" for r in rows_in]
     _write_tex("tab_marketpower.tex",
                "\\begin{tabular*}{\\textwidth}{@{\\extracolsep{\\fill}}lrrrrr@{}}\n\\toprule\n"
-               "District & Agents & HHI & Largest & Cong.\\ pay & Dev.\\ bound \\\\\n"
+               "District & Agents & HHI & Largest & Cong.\\ pay & Exposure \\\\\n"
                " & & & exp.\\ share & [k\\euro] & [\\% of bill] \\\\\n\\midrule\n"
                + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular*}\n")
 
@@ -177,7 +183,7 @@ def t_uncertainty():
         ("Deployable M1 recovery [\\% of gap]", pm("m1_recovery_pct", 1), iqr("m1_recovery_pct", 1)),
         ("Curtailment reduction at M3 [\\%]", pm("curt_reduction_pct", 1), iqr("curt_reduction_pct", 1)),
         ("Share: information (DE0$\\to$M1)", pm("share_info"), iqr("share_info")),
-        ("Share: foresight (M1$\\to$IND)", pm("share_foresight"), iqr("share_foresight")),
+        ("Share: diagnostic residual (M1$\\to$IND)", pm("share_foresight"), iqr("share_foresight")),
         ("Share: P2P market (IND$\\to$M2)", pm("share_pool"), iqr("share_pool")),
         ("Share: grid price (M2$\\to$M3)", pm("share_grid"), iqr("share_grid")),
     ]
@@ -315,13 +321,53 @@ def t_tech():
                + "\n".join(f"{k} & {v} \\\\" for k, v in rows) + "\n\\bottomrule\n\\end{tabularx}\n")
 
 
+def t_recycling():
+    d = _load("recycling.json")
+    rows = [f"{r['agent']} & {r['de0']:.2f} & {r['m3']:.2f} & {r['m3_eq']:.2f} & {r['m3_prop']:.2f} & "
+            f"{'yes' if r['ir_eq'] else 'no'} & {'yes' if r['ir_prop'] else 'no'} \\\\" for r in d["rows"]]
+    _write_tex("tab_recycling.tex",
+               "\\begin{tabular*}{\\textwidth}{@{\\extracolsep{\\fill}}lrrrrcc@{}}\n\\toprule\n"
+               "Agent & $\\mathrm{DE0}$ & $\\mathrm{M3}$ & $\\mathrm{M3}$+equal & $\\mathrm{M3}$+prop.\\ & IR equal & IR prop.\\ \\\\\n"
+               " & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & & \\\\\n\\midrule\n"
+               + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular*}\n")
+
+
+def t_reg_deployable():
+    rows_in = _load("regularization_deployable.json")
+    rows = [f"$10^{{{int(round(np.log10(r['epsilon'])))}}}$ & {r['de0_kEUR']:.3f} & {r['m1_kEUR']:.3f} & "
+            f"{r['info_kEUR']:.3f} & {r['m1_recovery_pct']:.1f} \\\\" for r in rows_in]
+    _write_tex("tab_reg_deployable.tex",
+               "\\begin{tabular*}{\\textwidth}{@{\\extracolsep{\\fill}}rrrrr@{}}\n\\toprule\n"
+               "$\\varepsilon^{\\mathrm r}$ & DE0 cost & M1 cost & Info gain & M1 recovery \\\\\n"
+               " & [k\\euro] & [k\\euro] & [k\\euro] & [\\% of gap] \\\\\n\\midrule\n"
+               + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular*}\n")
+
+
+def t_montecarlo():
+    rows = [
+        ("Ambient temperature", "additive $\\mathcal N(0,1.2\\,^\\circ\\mathrm{C})$ per hour", "common to all agents"),
+        ("Solar clearness", "$\\mathrm{Beta}(5,2)$ per hour", "common, clipped to $[0.2,1.0]$"),
+        ("Electrical load", "multiplicative $1+\\mathcal N(0,0.05)$ per hour", "independent per agent"),
+        ("Day-ahead price", "additive $\\mathcal N(0,0.01)$~\\euro/kWh", "common, floored at 0.01"),
+        ("Emission factor", "additive $\\mathcal N(0,0.01)$~kg/kWh", "common, floored at 0.005"),
+        ("Private forecast error", "multiplicative $1+\\mathcal N(0,0.25)$", "independent per agent, clipped $\\ge0.2$"),
+        ("Shared forecast error", "multiplicative $1+\\mathcal N(0,0.08)$", "common to all agents, clipped $\\ge0.2$"),
+    ]
+    _write_tex("tab_montecarlo.tex",
+               "\\begin{tabularx}{\\textwidth}{@{}>{\\raggedright\\arraybackslash}p{4.0cm}"
+               ">{\\raggedright\\arraybackslash}p{3.7cm}X@{}}\n\\toprule\n"
+               "Quantity & Perturbation & Correlation and bounds \\\\\n\\midrule\n"
+               + "\n".join(f"{a} & {b} & {c} \\\\" for a, b, c in rows) + "\n\\bottomrule\n\\end{tabularx}\n")
+
+
 def generate_tables():
     main = _load("main_results.json")
     t_pilots(main); t_main(main); t_waterfall(main); t_prices(main); t_equiv(main)
-    t_agents(); t_zones(); t_tech(); t_provenance()
+    t_agents(); t_zones(); t_tech(); t_provenance(); t_montecarlo()
     for name, fn in [("agent_ir", t_agent_ir), ("marketpower", t_marketpower), ("forecast", t_forecast),
                      ("uncertainty", t_uncertainty), ("fullyear", t_fullyear),
-                     ("reg_sensitivity", t_reg_sensitivity), ("order_audit", t_order_audit)]:
+                     ("reg_sensitivity", t_reg_sensitivity), ("order_audit", t_order_audit),
+                     ("recycling", t_recycling), ("reg_deployable", t_reg_deployable)]:
         try:
             fn()
         except (FileNotFoundError, KeyError) as e:
@@ -422,7 +468,7 @@ def fig_waterfall(main):
         ax.set_title(FIG_NAME[pid], fontsize=8)
         ax.set_ylim(min(costs) * 0.9, max(costs) * 1.02)
         for xi, c in zip(x, costs):
-            ax.text(xi, c, f"{c:.0f}", ha="center", va="bottom", fontsize=6)
+            ax.text(xi, c, f"{c:.1f}", ha="center", va="bottom", fontsize=6)
     axes[0].set_ylabel("annual net cost [k€]")
     _save_fig(fig, "F2_waterfall")
 
@@ -441,10 +487,12 @@ def fig_prices(main):
     ax.set_xlabel("hour [h]"); ax.set_ylabel("price [€/kWh]")
     ax.set_title("Prices in the binding week", fontsize=8)
     ax.legend(fontsize=7.5, frameon=False)
-    td = np.sort(tau)[::-1]
-    ax2.plot(np.arange(len(td)), td, color="#c1121f", lw=1.2)
-    ax2.fill_between(np.arange(len(td)), 0, td, color="#c1121f", alpha=.18)
-    ax2.set_xlabel("ranked hours [h]"); ax2.set_ylabel(r"$\tau$ [€/kWh]")
+    wa = _annual_weights(len(tau))
+    order = np.argsort(tau)[::-1]
+    xh = np.cumsum(wa[order])
+    ax2.plot(xh, tau[order], color="#c1121f", lw=1.2)
+    ax2.fill_between(xh, 0, tau[order], color="#c1121f", alpha=.18)
+    ax2.set_xlabel("annual hours [h]"); ax2.set_ylabel(r"$\tau$ [€/kWh]")
     ax2.set_title("Annual congestion-price duration", fontsize=8)
     _save_fig(fig, "F4_prices")
 
@@ -580,7 +628,7 @@ def fig_uncertainty(u):
     ax.axvline(st["gap_pct"]["mean"], color="#c1121f", lw=1.2, label=f"mean {st['gap_pct']['mean']:.1f}%")
     ax.set_xlabel("coordination gap [% of DE0 cost]"); ax.set_ylabel("count")
     ax.set_title("Gap distribution across seeds", fontsize=8); ax.legend(fontsize=7, frameon=False)
-    labels = ["information", "foresight", "P2P market", "grid price"]
+    labels = ["information", "diagnostic", "P2P market", "grid price"]
     keys = ["share_info", "share_foresight", "share_pool", "share_grid"]
     means = [st[k]["mean"] for k in keys]; sds = [st[k]["std"] for k in keys]
     ax2.bar(np.arange(4), means, 0.6, yerr=sds, capsize=3, color=["#8d99ae", "#6c8ead", "#2a6f97", "#014f86"])

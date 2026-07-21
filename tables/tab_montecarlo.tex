@@ -1,0 +1,13 @@
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.0cm}>{\raggedright\arraybackslash}p{3.7cm}X@{}}
+\toprule
+Quantity & Perturbation & Correlation and bounds \\
+\midrule
+Ambient temperature & additive $\mathcal N(0,1.2\,^\circ\mathrm{C})$ per hour & common to all agents \\
+Solar clearness & $\mathrm{Beta}(5,2)$ per hour & common, clipped to $[0.2,1.0]$ \\
+Electrical load & multiplicative $1+\mathcal N(0,0.05)$ per hour & independent per agent \\
+Day-ahead price & additive $\mathcal N(0,0.01)$~\euro/kWh & common, floored at 0.01 \\
+Emission factor & additive $\mathcal N(0,0.01)$~kg/kWh & common, floored at 0.005 \\
+Private forecast error & multiplicative $1+\mathcal N(0,0.25)$ & independent per agent, clipped $\ge0.2$ \\
+Shared forecast error & multiplicative $1+\mathcal N(0,0.08)$ & common to all agents, clipped $\ge0.2$ \\
+\bottomrule
+\end{tabularx}
