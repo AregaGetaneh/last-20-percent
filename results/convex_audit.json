@@ -1,0 +1,142 @@
+{
+  "description": "Independent CVXPY/Clarabel audit of the Virum convex perfect-information stages.",
+  "regularization_sensitivity": [
+    {
+      "epsilon": 1e-07,
+      "IND": {
+        "economic_cost_kEUR": 53.96883609913554,
+        "pool_volume_MWh": 1.6579013134424779e-15,
+        "pi_mean_EUR_per_kWh": 0.0,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 41.124078122934314
+      },
+      "M2": {
+        "economic_cost_kEUR": 53.508194148141506,
+        "pool_volume_MWh": 80.8055514712638,
+        "pi_mean_EUR_per_kWh": 0.09671648677633253,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 40.62390740473592
+      },
+      "M3": {
+        "economic_cost_kEUR": 51.95452559446508,
+        "pool_volume_MWh": 58.40457030065902,
+        "pi_mean_EUR_per_kWh": 0.089750886873841,
+        "tau_mean_EUR_per_kWh": 0.006269867144116711,
+        "tau_max_EUR_per_kWh": 0.06059213073731961,
+        "raw_pre_recourse_objective_kEUR": 52.12521427946463
+      },
+      "pool_increment_kEUR": 0.46064195099403094,
+      "grid_increment_kEUR": 1.5536685536764239
+    },
+    {
+      "epsilon": 1e-06,
+      "IND": {
+        "economic_cost_kEUR": 53.96883622758239,
+        "pool_volume_MWh": 1.70137865910107e-15,
+        "pi_mean_EUR_per_kWh": 0.0,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 41.20732116417653
+      },
+      "M2": {
+        "economic_cost_kEUR": 53.508194131952834,
+        "pool_volume_MWh": 80.73533945673549,
+        "pi_mean_EUR_per_kWh": 0.09671892671263843,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 40.70532640218851
+      },
+      "M3": {
+        "economic_cost_kEUR": 51.95452556593444,
+        "pool_volume_MWh": 57.80501221404506,
+        "pi_mean_EUR_per_kWh": 0.08978474242088443,
+        "tau_mean_EUR_per_kWh": 0.006257363705395379,
+        "tau_max_EUR_per_kWh": 0.06050050344086669,
+        "raw_pre_recourse_objective_kEUR": 52.157955828910346
+      },
+      "pool_increment_kEUR": 0.4606420956295594,
+      "grid_increment_kEUR": 1.5536685660183949
+    },
+    {
+      "epsilon": 1e-05,
+      "IND": {
+        "economic_cost_kEUR": 53.89897492788615,
+        "pool_volume_MWh": 2.2682708636428783e-15,
+        "pi_mean_EUR_per_kWh": 0.0,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 42.035839428471604
+      },
+      "M2": {
+        "economic_cost_kEUR": 53.43035828518159,
+        "pool_volume_MWh": 80.08331506274678,
+        "pi_mean_EUR_per_kWh": 0.09674412163375007,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 41.515429687423094
+      },
+      "M3": {
+        "economic_cost_kEUR": 51.956094797419226,
+        "pool_volume_MWh": 56.40727896756179,
+        "pi_mean_EUR_per_kWh": 0.09012576546055374,
+        "tau_mean_EUR_per_kWh": 0.0061325855293668146,
+        "tau_max_EUR_per_kWh": 0.05958406192943696,
+        "raw_pre_recourse_objective_kEUR": 52.48369384628095
+      },
+      "pool_increment_kEUR": 0.4686166427045606,
+      "grid_increment_kEUR": 1.4742634877623644
+    }
+  ],
+  "order_audit": {
+    "regularization": 1e-06,
+    "costs": {
+      "independent": {
+        "economic_cost_kEUR": 53.96883622758239,
+        "pool_volume_MWh": 1.70137865910107e-15,
+        "pi_mean_EUR_per_kWh": 0.0,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 41.20732116417653
+      },
+      "pool_only": {
+        "economic_cost_kEUR": 53.508194131952834,
+        "pool_volume_MWh": 80.73533945673549,
+        "pi_mean_EUR_per_kWh": 0.09671892671263843,
+        "tau_mean_EUR_per_kWh": 0.0,
+        "tau_max_EUR_per_kWh": 0.0,
+        "raw_pre_recourse_objective_kEUR": 40.70532640218851
+      },
+      "grid_only": {
+        "economic_cost_kEUR": 52.45088033097345,
+        "pool_volume_MWh": 8.672658613842246e-17,
+        "pi_mean_EUR_per_kWh": 0.0,
+        "tau_mean_EUR_per_kWh": 0.00625707032444863,
+        "tau_max_EUR_per_kWh": 0.06048867822879213,
+        "raw_pre_recourse_objective_kEUR": 52.65442074550106
+      },
+      "pool_and_grid": {
+        "economic_cost_kEUR": 51.95452556593444,
+        "pool_volume_MWh": 57.80501221404506,
+        "pi_mean_EUR_per_kWh": 0.08978474242088443,
+        "tau_mean_EUR_per_kWh": 0.006257363705395379,
+        "tau_max_EUR_per_kWh": 0.06050050344086669,
+        "raw_pre_recourse_objective_kEUR": 52.157955828910346
+      }
+    },
+    "pool_first": {
+      "pool_kEUR": 0.4606420956295594,
+      "grid_kEUR": 1.5536685660183949
+    },
+    "grid_first": {
+      "grid_kEUR": 1.517955896608946,
+      "pool_kEUR": 0.4963547650390083
+    },
+    "shapley": {
+      "pool_kEUR": 0.47849843033428385,
+      "grid_kEUR": 1.5358122313136704
+    },
+    "interaction_kEUR": -0.03571266940944895
+  }
+}

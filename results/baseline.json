@@ -1,0 +1,24 @@
+{
+ "pid": "virum",
+ "sp_kEUR": 51.95452553488021,
+ "rows": [
+  {
+   "case": "base_24h_flat",
+   "de0_kEUR": 54.33886110716079,
+   "gap_kEUR": 2.384335572280577,
+   "gap_pct_of_base": 100.0
+  },
+  {
+   "case": "horizon_48h",
+   "de0_kEUR": 54.12886490943499,
+   "gap_kEUR": 2.1743393745547763,
+   "gap_pct_of_base": 91.19267437993459
+  },
+  {
+   "case": "time_of_use",
+   "de0_kEUR": 54.3281668183786,
+   "gap_kEUR": 2.3736412834983867,
+   "gap_pct_of_base": 99.55147719530262
+  }
+ ]
+}
