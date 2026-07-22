@@ -420,6 +420,29 @@ def run_marketpower(pids=None):
     return rows
 
 
+def run_pool_price(pids=None):
+    """P2P clearing-price statistics that respect pool-dual non-uniqueness: the
+    trade-volume-weighted mean price over active hours, the active-hour count, the
+    trade-weighted seller premium above feed-in and buyer saving below the effective
+    import price, and the all-hour arithmetic mean (the particular solver dual)."""
+    pids = pids or list(C.PILOTS)
+    print(f"[pool-price] {pids}")
+    rows = []
+    for pid in pids:
+        d = build_pilot_data(pid); A = list(d.agents.keys()); w = d.days_weight * d.dt
+        _, pi, tau, pa = _joint(d, True, CARBON_PRICE, DH_PRICE, detail=True)
+        vol = sum(pa[a]["sell"] for a in A)
+        act = vol > 1.0
+        wv = w * vol
+        tw = lambda x: float(np.sum(wv[act] * x[act]) / np.sum(wv[act])) if act.any() else 0.0
+        eff_imp = d.price_imp + d.tariff
+        rows.append(dict(pid=pid, pi_tw=tw(pi), n_active_h=float(np.sum(w[act])),
+                         n_active_rep=int(np.sum(act)), seller_prem=tw(pi - d.price_exp),
+                         buyer_save=tw(eff_imp - pi), pi_all_solverdual=float(np.mean(pi))))
+    _save("pool_price.json", {"rows": rows})
+    return rows
+
+
 def run_agent_table(pid="virum"):
     """Per-agent operating cost under DE0 and M3. An agent is individually rational
     to join only if its M3 bill (which carries the unrecycled congestion payment)
@@ -719,6 +742,7 @@ if __name__ == "__main__":
     run_forecast("virum")
     run_baseline("virum")
     run_marketpower()
+    run_pool_price()
     run_agent_table("virum")
     run_recycling("virum")
     run_reg_deployable("virum")

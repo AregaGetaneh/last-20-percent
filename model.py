@@ -291,10 +291,8 @@ def _independent(d, mode, carbon_price, dh_price, seed=0, regularization: float 
     err = ERR_PRIV if mode == "de0" else ERR_SHARED
     windows = list(range(0, T, horizon))
     nwin = len(windows)
-    # Day-varying forecast: a fresh draw for each daily window. For M1 the draw is
-    # shared across agents (the platform distributes one common forecast); for DE0
-    # it is private and independent per agent. M1 therefore reflects the combined
-    # value of higher accuracy and shared consistency.
+    # Day-varying forecast: fresh draw per daily window; shared across agents for M1,
+    # private per agent for DE0.
     common_fe = None
     if mode == "m1":
         common_fe = [{q: np.clip(1 + rng.normal(0, err, min(d0 + horizon, T) - d0), 0.2, None)
@@ -307,10 +305,8 @@ def _independent(d, mode, carbon_price, dh_price, seed=0, regularization: float 
         for wi, d0 in enumerate(windows):
             steps = list(range(d0, min(d0 + horizon, T)))
             end = min(d0 + horizon, T); sl = slice(d0, end); L = len(steps)
-            # Each representative week is operated and closed separately: reset storage
-            # to the reference state at the start of every season block and return it
-            # there at the end, matching the season-cyclic closure of the planner and
-            # perfect-information variants; state is carried only within a season.
+            # Reset storage to the reference state at each season boundary and close it
+            # there; state is carried only within a representative week.
             if d0 % SL == 0:
                 e0 = dict(ref)
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
@@ -322,10 +318,8 @@ def _independent(d, mode, carbon_price, dh_price, seed=0, regularization: float 
             plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
                              ds_t * fe["load"], dh_t * fe["heat"], e0, False, carbon_price, dh_price,
                              regularization=regularization, terminal=terminal)
-            # realize on truth with the committed battery schedule fixed; grid exchange,
-            # thermal dispatch, and within-day shiftable load are recourse. The thermal
-            # terminal state is re-imposed here so the store is genuinely closed at each
-            # representative-week boundary in the realized trajectory.
+            # Realize on truth with the battery schedule fixed; thermal, grid, and
+            # shiftable load are recourse, with the thermal terminal re-imposed at week end.
             close = {"eT": ref["eT"]} if last_of_week else None
             real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, carbon_price, dh_price,
                              fix=plan, regularization=regularization, terminal=close)

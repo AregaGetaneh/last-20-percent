@@ -26,7 +26,7 @@ TEX_NAME = {"virum": "Virum", "limerick": "Limerick", "vasteras": "V\\\"aster\\a
 FIG_NAME = {"virum": "Virum (DK)", "limerick": "Limerick (IE)", "vasteras": "Västerås (SE)",
             "graz": "Graz–Berlin (DE-AT)", "turkey": "Turkey", "romania": "Romania"}
 VARS = ["DE0", "DE_M1", "DE_IND", "DE_M2", "DE_M3"]
-VLAB = ["DE0", "+Info", "+Diag", "+Pool", "+Grid"]
+VLAB = ["DE0", "+Shared", "+Diag", "+Pool", "+Grid"]
 
 plt.rcParams.update({
     "font.size": 9, "axes.spines.top": False, "axes.spines.right": False,
@@ -102,7 +102,7 @@ def t_waterfall(main):
                     f"{c['DE_M3']:.1f} & {c['SP']:.1f} & {gap0:.2f} & {rec:.0f}\\% \\\\")
     _write_tex("tab_waterfall.tex",
                "\\begin{tabular}{lrrrrrrrr}\n\\toprule\n"
-               "District & DE0 & +Info & +Diag & +Pool & +Grid & SP & Gap & M1 rec. \\\\\n"
+               "District & DE0 & +Shared & +Diag & +Pool & +Grid & SP & Gap & Sh.\\ share \\\\\n"
                " & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & [k\\euro] & \\\\\n\\midrule\n"
                + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
 
@@ -165,7 +165,7 @@ def t_forecast():
             f"{r['info_pct_gap']:.1f} \\\\" for r in f["rows"]]
     _write_tex("tab_forecast.tex",
                "\\begin{tabular*}{\\textwidth}{@{\\extracolsep{\\fill}}rrrrr@{}}\n\\toprule\n"
-               "Private error s.d.\\ & DE0 cost & M1 cost & Info gain & M1 recovery \\\\\n"
+               "Private error s.d.\\ & DE0 cost & M1 cost & Shared-fcst gain & M1 recovery \\\\\n"
                " & [k\\euro] & [k\\euro] & [k\\euro] & [\\% of gap] \\\\\n\\midrule\n"
                + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular*}\n")
 
@@ -180,9 +180,9 @@ def t_uncertainty():
         ("Coordination gap [k\\euro]", pm("gap_kEUR"), iqr("gap_kEUR")),
         ("Coordination gap [\\% of DE0]", pm("gap_pct"), iqr("gap_pct")),
         ("Planner curtailment [MWh]", pm("curt_SP", 1), iqr("curt_SP", 1)),
-        ("Deployable M1 recovery [\\% of gap]", pm("m1_recovery_pct", 1), iqr("m1_recovery_pct", 1)),
+        ("Forecast-informed M1 recovery [\\% of gap]", pm("m1_recovery_pct", 1), iqr("m1_recovery_pct", 1)),
         ("Curtailment reduction at M3 [\\%]", pm("curt_reduction_pct", 1), iqr("curt_reduction_pct", 1)),
-        ("Share: information (DE0$\\to$M1)", pm("share_info"), iqr("share_info")),
+        ("Share: shared forecast (DE0$\\to$M1)", pm("share_info"), iqr("share_info")),
         ("Share: diagnostic residual (M1$\\to$IND)", pm("share_foresight"), iqr("share_foresight")),
         ("Share: P2P market (IND$\\to$M2)", pm("share_pool"), iqr("share_pool")),
         ("Share: grid price (M2$\\to$M3)", pm("share_grid"), iqr("share_grid")),
@@ -338,7 +338,7 @@ def t_reg_deployable():
             f"{r['info_kEUR']:.3f} & {r['m1_recovery_pct']:.1f} \\\\" for r in rows_in]
     _write_tex("tab_reg_deployable.tex",
                "\\begin{tabular*}{\\textwidth}{@{\\extracolsep{\\fill}}rrrrr@{}}\n\\toprule\n"
-               "$\\varepsilon^{\\mathrm r}$ & DE0 cost & M1 cost & Info gain & M1 recovery \\\\\n"
+               "$\\varepsilon^{\\mathrm r}$ & DE0 cost & M1 cost & Shared-fcst gain & M1 recovery \\\\\n"
                " & [k\\euro] & [k\\euro] & [k\\euro] & [\\% of gap] \\\\\n\\midrule\n"
                + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular*}\n")
 
