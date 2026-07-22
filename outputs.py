@@ -476,12 +476,17 @@ def fig_waterfall(main):
 def fig_prices(main):
     d = main["virum"]["series"]
     pi = np.array(d["pi"]); tau = np.array(d["tau"])
+    vol = np.array(d.get("vol", np.ones_like(pi)))
     nw = len(tau) // 168
     binding = [int(np.sum(tau[wk * 168:(wk + 1) * 168] > 1e-4)) for wk in range(nw)]
     wk = int(np.argmax(binding)); a = wk * 168; b = a + 168
     h = np.arange(168)
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(9.2, 2.9))
-    ax.plot(h, pi[a:b], color="#2a6f97", lw=1.1, label=r"P2P clearing price $\pi$")
+    # P2P price solid only in active pool hours (V_t > 1 kW); low-volume hours, where
+    # the multiplier is one solver-selected dual, are greyed and dotted
+    act = vol[a:b] > 1.0; pib = pi[a:b]
+    ax.plot(h, np.where(act, pib, np.nan), color="#2a6f97", lw=1.1, label=r"P2P price $\pi$ (active hours)")
+    ax.plot(h, np.where(~act, pib, np.nan), color="#b0b0b0", lw=0.8, ls=":", label=r"$\pi$ (low-volume dual)")
     ax.plot(h, tau[a:b], color="#c1121f", lw=1.0, label=r"congestion price $\tau$")
     ax.fill_between(h, 0, tau[a:b], color="#c1121f", alpha=.18)
     ax.set_xlabel("hour [h]"); ax.set_ylabel("price [€/kWh]")

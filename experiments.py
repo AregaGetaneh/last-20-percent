@@ -67,6 +67,8 @@ def run_main():
         sp = solve_planner(d, relax=False)
         splp = solve_planner(d, relax=True)
         pi3, tau3 = pr["DE_M3"]
+        _, _, _, pa_m3 = _joint(d, True, CARBON_PRICE, DH_PRICE, detail=True)
+        vol3 = sum(pa_m3[a]["sell"] for a in d.agents)     # aggregate pool volume per hour [kW]
         tau_bind = tau3 > 1e-4
         tau_cond = float(np.mean(tau3[tau_bind])) if tau_bind.any() else 0.0
         w = d.days_weight * d.dt
@@ -83,7 +85,7 @@ def run_main():
             integrality_kEUR=float(sp["cost_kEUR"] - splp["cost_kEUR"]),
             simul_kWh=float(splp.get("simul_kWh", 0.0)),
             series=dict(I=sp["series"]["I"], E=sp["series"]["E"], CURT=sp["series"]["CURT"],
-                        PV=sp["series"]["PV"], dem=sp["series"]["dem"], pi=pi3, tau=tau3),
+                        PV=sp["series"]["PV"], dem=sp["series"]["dem"], pi=pi3, tau=tau3, vol=vol3),
         )
         print(f"  {pid:10s} done in {time.time()-t0:.1f}s")
     _save("main_results.json", out)
