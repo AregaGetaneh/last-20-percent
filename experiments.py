@@ -435,9 +435,9 @@ def run_pool_price(pids=None):
         act = vol > 1.0
         wv = w * vol
         tw = lambda x: float(np.sum(wv[act] * x[act]) / np.sum(wv[act])) if act.any() else 0.0
-        # effective M3 grid alternatives: use-of-system tariff on both directions and
-        # congestion price on net export, so both benchmarks move
-        c_imp = d.price_imp + d.tariff - tau
+        # objective-based M3 grid alternatives from model (4): use-of-system tariff on
+        # both directions, congestion price on net export, monetized carbon on import
+        c_imp = d.price_imp + d.tariff + CARBON_PRICE * d.ef - tau
         r_exp = d.price_exp - d.tariff - tau
         rows.append(dict(pid=pid, pi_tw=tw(pi), n_active_h=float(np.sum(w[act])),
                          n_active_rep=int(np.sum(act)), seller_prem=tw(pi - r_exp),
