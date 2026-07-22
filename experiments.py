@@ -412,15 +412,19 @@ def run_agent_table(pid="virum"):
     rng = np.random.default_rng(C.SEED + 0)
     keys = ["imp", "exp", "PV", "chB", "disB", "DH"]
     ser = {a: {k: np.zeros(T) for k in keys} for a in A}
-    windows = list(range(0, T, 24)); nwin = len(windows)
+    windows = list(range(0, T, 24)); nwin = len(windows); SL = C.HOURS_PER_SEASON
     for a in A:
         ag = d.agents[a]
-        e0 = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]}
+        ref = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]}
+        e0 = dict(ref)
         for wi, d0 in enumerate(windows):
-            steps = list(range(d0, min(d0 + 24, T))); sl = slice(d0, d0 + len(steps)); L = len(steps)
+            steps = list(range(d0, min(d0 + 24, T))); end = min(d0 + 24, T)
+            sl = slice(d0, end); L = len(steps)
+            if d0 % SL == 0:
+                e0 = dict(ref)
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
             fe = {q: np.clip(1 + rng.normal(0, M.ERR_PRIV, L), 0.2, None) for q in ["pv", "load", "heat"]}
-            terminal = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]} if wi == nwin - 1 else None
+            terminal = dict(ref) if (end % SL == 0 or wi == nwin - 1) else None
             plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
                              ds_t * fe["load"], dh_t * fe["heat"], e0, False, CARBON_PRICE, DH_PRICE, terminal=terminal)
             real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, CARBON_PRICE, DH_PRICE, fix=plan)

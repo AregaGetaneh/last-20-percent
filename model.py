@@ -243,6 +243,8 @@ def _agent_lp(d, aid, steps, pvav, dfix, dshb, dheat, e0, cyclic_season,
             m.addConstr(chB[k] == fix["chB"][k]); m.addConstr(disB[k] == fix["disB"][k])
     if terminal is not None:
         m.addConstr(eB[n] == terminal["eB"])
+        if "eT" in terminal:
+            m.addConstr(eT[n] == terminal["eT"])
     w = d.days_weight * d.dt
     obj = gp.QuadExpr()
     for k in range(n):
@@ -296,16 +298,24 @@ def _independent(d, mode, carbon_price, dh_price, seed=0, regularization: float 
     if mode == "m1":
         common_fe = [{q: np.clip(1 + rng.normal(0, err, min(d0 + horizon, T) - d0), 0.2, None)
                       for q in ["pv", "load", "heat"]} for d0 in windows]
+    SL = C.HOURS_PER_SEASON
     for a in A:
         ag = d.agents[a]
-        e0 = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]}
+        ref = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]}
+        e0 = dict(ref)
         for wi, d0 in enumerate(windows):
             steps = list(range(d0, min(d0 + horizon, T)))
-            sl = slice(d0, d0 + len(steps)); L = len(steps)
+            end = min(d0 + horizon, T); sl = slice(d0, end); L = len(steps)
+            # Each representative week is operated and closed separately: reset storage
+            # to the reference state at the start of every season block and return it
+            # there at the end, matching the season-cyclic closure of the planner and
+            # perfect-information variants; state is carried only within a season.
+            if d0 % SL == 0:
+                e0 = dict(ref)
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
             fe = common_fe[wi] if mode == "m1" else {q: np.clip(1 + rng.normal(0, err, L), 0.2, None)
                                                      for q in ["pv", "load", "heat"]}
-            terminal = {"eB": 0.5 * ag["batt_kwh"], "eT": 0.5 * ag["tes_kwh"]} if wi == nwin - 1 else None
+            terminal = dict(ref) if (end % SL == 0 or wi == nwin - 1) else None
             # plan on the day-ahead forecast, committing the battery schedule
             plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
                              ds_t * fe["load"], dh_t * fe["heat"], e0, False, carbon_price, dh_price,
