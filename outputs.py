@@ -628,7 +628,7 @@ def fig_uncertainty(u):
     ax.axvline(st["gap_pct"]["mean"], color="#c1121f", lw=1.2, label=f"mean {st['gap_pct']['mean']:.2f}%")
     ax.set_xlabel("coordination gap [% of DE0 cost]"); ax.set_ylabel("count")
     ax.set_title("Gap distribution across seeds", fontsize=8); ax.legend(fontsize=7, frameon=False)
-    labels = ["information", "diagnostic", "P2P market", "grid price"]
+    labels = ["shared forecast", "diagnostic", "P2P market", "grid price"]
     keys = ["share_info", "share_foresight", "share_pool", "share_grid"]
     means = [st[k]["mean"] for k in keys]; sds = [st[k]["std"] for k in keys]
     ax2.bar(np.arange(4), means, 0.6, yerr=sds, capsize=3, color=["#8d99ae", "#6c8ead", "#2a6f97", "#014f86"])

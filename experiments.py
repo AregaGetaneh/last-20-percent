@@ -254,7 +254,7 @@ def _uncert_record(wf, s, d):
     gap = c["DE0"] - c["SP"]
     curt_de0 = wf["DE0"]["curt_MWh"]; curt_m3 = wf["DE_M3"]["curt_MWh"]
     asum = annual_summary(d)
-    ann_gen = asum["pv_MWh"]; ped = ann_gen / max(asum["elec_dem_MWh"], 1e-9)
+    ann_gen = asum["pv_MWh"]; ped = ann_gen / max(asum["demand_eq_MWh"], 1e-9)
     return dict(
         seed_idx=s, cost_SP=c["SP"], SSR=m3["SSR"], gap_kEUR=gap, gap_pct=100 * gap / c["DE0"],
         curt_SP=m3["curt_MWh"], ann_gen_MWh=ann_gen, ped_ratio=ped,

@@ -161,8 +161,18 @@ def annual_summary(d: PilotData) -> dict:
     dfix = sum(np.sum(a["Dfix"] * w) for a in d.agents.values())
     dsh = sum(np.sum(a["Dshbase"] * w) for a in d.agents.values())
     heat = sum(np.sum(a["Dheat"] * w) for a in d.agents.values())
+    # electricity-equivalent demand used in the PED sizing: electric load plus heat
+    # served through the heat pump (COP) or resistive backup, net of solar-thermal gain
+    cop_avg = float(np.clip(C.COP0 + C.KAPPA_COP * (np.mean(d.Tamb) - 7.0), C.COP_MIN, C.COP_MAX))
+    deq = 0.0
+    for a in d.agents.values():
+        e_elec = float(np.sum((a["Dfix"] + a["Dshbase"]) * w))
+        cop_use = cop_avg if a["hp"] else 1.0
+        e_heat = max(0.0, float(np.sum((a["Dheat"] - a["Qpvt"]) * w))) / cop_use
+        deq += e_elec + e_heat
     return dict(
         pv_MWh=pv / 1000, elec_dem_MWh=(dfix + dsh) / 1000, heat_dem_MWh=heat / 1000,
+        demand_eq_MWh=deq / 1000,
         price_mean=float(np.mean(d.price_imp)), ef_mean=float(np.mean(d.ef)),
         Tamb_range=(float(d.Tamb.min()), float(d.Tamb.max())),
     )
