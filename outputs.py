@@ -522,8 +522,8 @@ def fig_sensitivity(sens):
     tot = [r["DE0"]["cost_kEUR"] - r["SP"]["cost_kEUR"] for r in H]
     res = [r["DE_M3"]["cost_kEUR"] - r["SP"]["cost_kEUR"] for r in H]
     a1.plot(s, tot, marker="o", ms=3, color="#014f86", label="total gap (DE0 - SP)")
-    a1.plot(s, res, marker="s", ms=3, color="#2a9d8f", label="residual after platform (M3 - SP)")
-    a1.fill_between(s, res, tot, color="#8ecae6", alpha=.35, label="recovered by platform")
+    a1.plot(s, res, marker="s", ms=3, color="#2a9d8f", label="residual at idealized M3 benchmark (M3 - SP)")
+    a1.fill_between(s, res, tot, color="#8ecae6", alpha=.35, label="recovered at idealized M3 benchmark")
     a1.set_xlabel("hosting limit / base [-]"); a1.set_ylabel("coordination gap [k€]")
     a1.set_title("Gap vs grid scarcity", fontsize=8); a1.legend(fontsize=6, frameon=False)
     Cb = sens["carbon"]; cp = [r["carbon"] * 1000 for r in Cb]
@@ -625,7 +625,7 @@ def fig_uncertainty(u):
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(9.0, 3.0))
     gaps = [d["gap_pct"] for d in draws]
     ax.hist(gaps, bins=12, color="#2a6f97", alpha=.8)
-    ax.axvline(st["gap_pct"]["mean"], color="#c1121f", lw=1.2, label=f"mean {st['gap_pct']['mean']:.1f}%")
+    ax.axvline(st["gap_pct"]["mean"], color="#c1121f", lw=1.2, label=f"mean {st['gap_pct']['mean']:.2f}%")
     ax.set_xlabel("coordination gap [% of DE0 cost]"); ax.set_ylabel("count")
     ax.set_title("Gap distribution across seeds", fontsize=8); ax.legend(fontsize=7, frameon=False)
     labels = ["information", "diagnostic", "P2P market", "grid price"]

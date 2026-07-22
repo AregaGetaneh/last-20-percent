@@ -1,0 +1,12 @@
+{
+ "pid": "virum",
+ "n_agents": 4,
+ "largest": "VI-A",
+ "pv_share": 0.28070175438596495,
+ "export_share_binding": 0.2562729326613671,
+ "hhi": 0.2509102736911149,
+ "cong_payment_kEUR": 2.5448581965364974,
+ "bill_kEUR": 15.518452958629414,
+ "dev_gain_bound_pct": 16.39891684642036,
+ "bind_hours_rep": 106
+}

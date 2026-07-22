@@ -12,7 +12,7 @@ from __future__ import annotations
 import json, os, time
 import numpy as np
 import config as C
-from data import build_pilot_data, PilotData
+from data import build_pilot_data, PilotData, annual_summary
 from model import (solve_planner, solve_waterfall, price_discovery,
                    _independent, _kpis, _joint, _agent_lp,
                    CARBON_PRICE, DH_PRICE, EPS_SPILL, EPS_DUMP)
@@ -234,7 +234,8 @@ def run_fullyear(pid="virum"):
 def _uncert_stats(recs, pid):
     keys = ["cost_SP", "SSR", "gap_kEUR", "gap_pct", "curt_SP",
             "m1_recovery_kEUR", "m1_recovery_pct", "curt_reduction_pct",
-            "share_info", "share_foresight", "share_pool", "share_grid"]
+            "share_info", "share_foresight", "share_pool", "share_grid",
+            "ann_gen_MWh", "ped_ratio"]
     stats = {k: dict(mean=float(np.mean([r[k] for r in recs])),
                      std=float(np.std([r[k] for r in recs])),
                      p10=float(np.percentile([r[k] for r in recs], 10)),
@@ -246,17 +247,17 @@ def _uncert_stats(recs, pid):
     return {"pid": pid, "stats": stats, "draws": recs}
 
 
-def _uncert_draw(pid, s):
-    d = build_pilot_data(pid, seed=C.SEED + 101 * s)
-    wf, _ = solve_waterfall(d)
+def _uncert_record(wf, s, d):
     m3 = wf["DE_M3"]                                     # equals SP by the zero-integrality-gap equivalence
     c = {k: wf[k]["cost_kEUR"] for k in ["DE0", "DE_M1", "DE_IND", "DE_M2", "DE_M3"]}
     c["SP"] = c["DE_M3"]
     gap = c["DE0"] - c["SP"]
     curt_de0 = wf["DE0"]["curt_MWh"]; curt_m3 = wf["DE_M3"]["curt_MWh"]
+    asum = annual_summary(d)
+    ann_gen = asum["pv_MWh"]; ped = ann_gen / max(asum["elec_dem_MWh"], 1e-9)
     return dict(
         seed_idx=s, cost_SP=c["SP"], SSR=m3["SSR"], gap_kEUR=gap, gap_pct=100 * gap / c["DE0"],
-        curt_SP=m3["curt_MWh"],
+        curt_SP=m3["curt_MWh"], ann_gen_MWh=ann_gen, ped_ratio=ped,
         m1_recovery_kEUR=c["DE0"] - c["DE_M1"],
         m1_recovery_pct=100 * (c["DE0"] - c["DE_M1"]) / gap if gap > 1e-6 else 0.0,
         curt_reduction_pct=100 * (curt_de0 - curt_m3) / curt_de0 if curt_de0 > 1e-6 else 0.0,
@@ -266,6 +267,23 @@ def _uncert_draw(pid, s):
         share_grid=(c["DE_M2"] - c["DE_M3"]) / gap if gap > 1e-6 else 0.0,
         rank_ok=int(c["DE0"] >= c["DE_M1"] - 1e-6 >= c["DE_M2"] - 1e-6 >= c["DE_M3"] - 1e-6 >= c["SP"] - 1e-6),
     )
+
+
+def _uncert_draw(pid, s):
+    d = build_pilot_data(pid, seed=C.SEED + 101 * s)
+    wf, _ = solve_waterfall(d)
+    return _uncert_record(wf, s, d)
+
+
+def _fix_capacity(d, base_kwp, yield_factor=1.0):
+    """Hold installed capacity at the base value; ``yield_factor`` scales the annual
+    energy by an interannual weather-year multiplier so annual generation varies
+    through the yield while installed capacity stays fixed."""
+    for a, v in d.agents.items():
+        if v["pv_kwp"] > 1e-9:
+            v["PVavail"] = v["PVavail"] * (base_kwp[a] / v["pv_kwp"]) * yield_factor
+            v["pv_kwp"] = base_kwp[a]
+    return d
 
 
 def run_uncertainty(pid="virum", seeds=100):
@@ -424,10 +442,12 @@ def run_agent_table(pid="virum"):
                 e0 = dict(ref)
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
             fe = {q: np.clip(1 + rng.normal(0, M.ERR_PRIV, L), 0.2, None) for q in ["pv", "load", "heat"]}
-            terminal = dict(ref) if (end % SL == 0 or wi == nwin - 1) else None
+            last_of_week = (end % SL == 0 or wi == nwin - 1)
+            terminal = dict(ref) if last_of_week else None
+            close = {"eT": ref["eT"]} if last_of_week else None
             plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
                              ds_t * fe["load"], dh_t * fe["heat"], e0, False, CARBON_PRICE, DH_PRICE, terminal=terminal)
-            real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, CARBON_PRICE, DH_PRICE, fix=plan)
+            real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, CARBON_PRICE, DH_PRICE, fix=plan, terminal=close)
             for k in keys:
                 ser[a][k][sl] += real[k]
             e0 = {"eB": real["eB_end"], "eT": real["eT_end"]}
@@ -648,30 +668,17 @@ def run_reg_deployable(pid="virum"):
 
 def run_uncertainty_fixed(pid="virum", seeds=100):
     """Fixed-capacity Monte Carlo: installed PV held at the base value while the
-    annual yield varies with the weather draw. Complements the re-sized study as a
-    genuine fixed-district robustness test."""
+    annual yield varies with a per-draw interannual weather-year multiplier, so
+    annual generation varies through the yield rather than through capacity.
+    Complements the re-sized study as a genuine fixed-district robustness test."""
     print(f"[uncertainty-fixed] pilot={pid} ({seeds} seeds)")
     base_kwp = {a: v["pv_kwp"] for a, v in build_pilot_data(pid).agents.items()}
     recs = []
     for s in range(seeds):
-        d = build_pilot_data(pid, seed=C.SEED + 101 * s)
-        for a, v in d.agents.items():
-            if v["pv_kwp"] > 1e-9:
-                v["PVavail"] = v["PVavail"] * (base_kwp[a] / v["pv_kwp"]); v["pv_kwp"] = base_kwp[a]
+        yf = float(np.clip(np.random.default_rng(C.SEED + 101 * s + 7).normal(1.0, 0.05), 0.85, 1.15))
+        d = _fix_capacity(build_pilot_data(pid, seed=C.SEED + 101 * s), base_kwp, yf)
         wf, _ = solve_waterfall(d)
-        m3 = wf["DE_M3"]
-        c = {k: wf[k]["cost_kEUR"] for k in ["DE0", "DE_M1", "DE_IND", "DE_M2", "DE_M3"]}
-        c["SP"] = c["DE_M3"]; gap = c["DE0"] - c["SP"]
-        c0 = wf["DE0"]["curt_MWh"]; c3 = wf["DE_M3"]["curt_MWh"]
-        recs.append(dict(seed_idx=s, cost_SP=c["SP"], SSR=m3["SSR"], gap_kEUR=gap, gap_pct=100 * gap / c["DE0"],
-                         curt_SP=m3["curt_MWh"], m1_recovery_kEUR=c["DE0"] - c["DE_M1"],
-                         m1_recovery_pct=100 * (c["DE0"] - c["DE_M1"]) / gap if gap > 1e-6 else 0.0,
-                         curt_reduction_pct=100 * (c0 - c3) / c0 if c0 > 1e-6 else 0.0,
-                         share_info=(c["DE0"] - c["DE_M1"]) / gap if gap > 1e-6 else 0.0,
-                         share_foresight=(c["DE_M1"] - c["DE_IND"]) / gap if gap > 1e-6 else 0.0,
-                         share_pool=(c["DE_IND"] - c["DE_M2"]) / gap if gap > 1e-6 else 0.0,
-                         share_grid=(c["DE_M2"] - c["DE_M3"]) / gap if gap > 1e-6 else 0.0,
-                         rank_ok=int(c["DE0"] >= c["DE_M1"] - 1e-6 >= c["DE_M2"] - 1e-6 >= c["DE_M3"] - 1e-6 >= c["SP"] - 1e-6)))
+        recs.append(_uncert_record(wf, s, d))
     _save("uncertainty_fixed.json", _uncert_stats(recs, pid))
     return _uncert_stats(recs, pid)["stats"]
 

@@ -242,7 +242,8 @@ def _agent_lp(d, aid, steps, pvav, dfix, dshb, dheat, e0, cyclic_season,
         for k in range(n):
             m.addConstr(chB[k] == fix["chB"][k]); m.addConstr(disB[k] == fix["disB"][k])
     if terminal is not None:
-        m.addConstr(eB[n] == terminal["eB"])
+        if "eB" in terminal:
+            m.addConstr(eB[n] == terminal["eB"])
         if "eT" in terminal:
             m.addConstr(eT[n] == terminal["eT"])
     w = d.days_weight * d.dt
@@ -315,15 +316,19 @@ def _independent(d, mode, carbon_price, dh_price, seed=0, regularization: float 
             pv_t = ag["PVavail"][sl]; df_t = ag["Dfix"][sl]; ds_t = ag["Dshbase"][sl]; dh_t = ag["Dheat"][sl]
             fe = common_fe[wi] if mode == "m1" else {q: np.clip(1 + rng.normal(0, err, L), 0.2, None)
                                                      for q in ["pv", "load", "heat"]}
-            terminal = dict(ref) if (end % SL == 0 or wi == nwin - 1) else None
+            last_of_week = (end % SL == 0 or wi == nwin - 1)
+            terminal = dict(ref) if last_of_week else None
             # plan on the day-ahead forecast, committing the battery schedule
             plan = _agent_lp(d, a, steps, pv_t * fe["pv"], df_t * fe["load"],
                              ds_t * fe["load"], dh_t * fe["heat"], e0, False, carbon_price, dh_price,
                              regularization=regularization, terminal=terminal)
             # realize on truth with the committed battery schedule fixed; grid exchange,
-            # dispatch, and within-day shiftable load are real-time recourse
+            # thermal dispatch, and within-day shiftable load are recourse. The thermal
+            # terminal state is re-imposed here so the store is genuinely closed at each
+            # representative-week boundary in the realized trajectory.
+            close = {"eT": ref["eT"]} if last_of_week else None
             real = _agent_lp(d, a, steps, pv_t, df_t, ds_t, dh_t, e0, False, carbon_price, dh_price,
-                             fix=plan, regularization=regularization)
+                             fix=plan, regularization=regularization, terminal=close)
             for k in keys:
                 agg[k][sl] += real[k]
             e0 = {"eB": real["eB_end"], "eT": real["eT_end"]}
