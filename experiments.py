@@ -435,10 +435,13 @@ def run_pool_price(pids=None):
         act = vol > 1.0
         wv = w * vol
         tw = lambda x: float(np.sum(wv[act] * x[act]) / np.sum(wv[act])) if act.any() else 0.0
-        eff_imp = d.price_imp + d.tariff
+        # effective M3 grid alternatives: use-of-system tariff on both directions and
+        # congestion price on net export, so both benchmarks move
+        c_imp = d.price_imp + d.tariff - tau
+        r_exp = d.price_exp - d.tariff - tau
         rows.append(dict(pid=pid, pi_tw=tw(pi), n_active_h=float(np.sum(w[act])),
-                         n_active_rep=int(np.sum(act)), seller_prem=tw(pi - d.price_exp),
-                         buyer_save=tw(eff_imp - pi), pi_all_solverdual=float(np.mean(pi))))
+                         n_active_rep=int(np.sum(act)), seller_prem=tw(pi - r_exp),
+                         buyer_save=tw(c_imp - pi), pi_all_solverdual=float(np.mean(pi))))
     _save("pool_price.json", {"rows": rows})
     return rows
 

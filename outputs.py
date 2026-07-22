@@ -180,7 +180,7 @@ def t_uncertainty():
         ("Coordination gap [k\\euro]", pm("gap_kEUR"), iqr("gap_kEUR")),
         ("Coordination gap [\\% of DE0]", pm("gap_pct"), iqr("gap_pct")),
         ("Planner curtailment [MWh]", pm("curt_SP", 1), iqr("curt_SP", 1)),
-        ("Forecast-informed M1 recovery [\\% of gap]", pm("m1_recovery_pct", 1), iqr("m1_recovery_pct", 1)),
+        ("Shared-forecast recovery [\\% of gap]", pm("m1_recovery_pct", 1), iqr("m1_recovery_pct", 1)),
         ("Curtailment reduction at M3 [\\%]", pm("curt_reduction_pct", 1), iqr("curt_reduction_pct", 1)),
         ("Share: shared forecast (DE0$\\to$M1)", pm("share_info"), iqr("share_info")),
         ("Share: diagnostic residual (M1$\\to$IND)", pm("share_foresight"), iqr("share_foresight")),
@@ -464,7 +464,7 @@ def fig_waterfall(main):
         costs = [v[k]["cost_kEUR"] for k in VARS] + [sp["cost_kEUR"]]
         x = np.arange(len(costs))
         ax.bar(x, costs, color=["#8d99ae", "#6c8ead", "#4a7ba6", "#2a6f97", "#014f86", "#013a63"])
-        ax.set_xticks(x); ax.set_xticklabels(VLAB + ["SP\nplanner"], fontsize=6)
+        ax.set_xticks(x); ax.set_xticklabels(VLAB + ["SP\nplanner"], fontsize=6, rotation=25, ha="right")
         ax.set_title(FIG_NAME[pid], fontsize=8)
         ax.set_ylim(min(costs) * 0.9, max(costs) * 1.02)
         for xi, c in zip(x, costs):
