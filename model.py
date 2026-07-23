@@ -170,8 +170,8 @@ def _extract(d, PV, chB, disB, DH, Phe, Pres, dsh, imp, exp, w, dh_price, carbon
     c_carbon = carbon_price * co2_t
     cost_op = c_imp + c_exprev + c_tariff + c_deg + c_dh              # private operating cost
     cost_kEUR = cost_op + c_carbon                                   # reported economic cost
-    ssr = 1 - inet_MWh / max(dem_MWh, 1e-9)
-    lpi_os = (enet_MWh + spill_MWh) / max(pv_MWh, 1e-9)
+    ssr = 1 - inet_MWh / max(dem_MWh, 1e-9)               # self-sufficiency ratio (SSR): demand met without net import
+    lpi_os = (enet_MWh + spill_MWh) / max(pv_MWh, 1e-9)   # oversupply loss-of-positivity index (LPI_os): renewable exported or curtailed
     match_rate = float(np.sum((I_net <= 1e-6) * w)) / max(float(np.sum(w)), 1e-9)
     return dict(
         pid=d.pid, status="optimal", ok=True,
@@ -179,7 +179,7 @@ def _extract(d, PV, chB, disB, DH, Phe, Pres, dsh, imp, exp, w, dh_price, carbon
         imp_MWh=inet_MWh, exp_MWh=enet_MWh, curt_MWh=spill_MWh,
         imp_gross_MWh=imp_g, exp_gross_MWh=exp_g, dh_MWh=dh_MWh,
         cost_kEUR=cost_kEUR, cost_op_kEUR=cost_op, carbon_kEUR=c_carbon,
-        co2_t=co2_t, SSR=ssr, LPI_ss=ssr, LPI_os=lpi_os, match_rate=match_rate,
+        co2_t=co2_t, SSR=ssr, LPI_os=lpi_os, match_rate=match_rate,
         cost_parts=dict(purchase=c_imp, export_rev=c_exprev, tariff=c_tariff, degradation=c_deg,
                         district_heat=c_dh, carbon=c_carbon),
         series=dict(I=I_net, E=E_net, CURT=spill, PV=pv_avail, PVdisp=pv_disp, dem=dem,
@@ -449,11 +449,15 @@ def _kpis(d, agg, name, real_hosting, carbon_price=CARBON_PRICE):
     co2_t = float(np.sum(w * d.ef * impv)) / 1000 + d.ef_dh * dh_MWh
     carbon = carbon_price * co2_t
     cost = cost_op + carbon
+    # self-sufficiency ratio (SSR): share of served demand met without net grid import
     ssr = 1 - inet / max(dem_MWh, 1e-9)
+    # oversupply loss-of-positivity index (LPI_os): share of available renewable
+    # generation exported or curtailed rather than self-consumed
     lpi_os = (enet + sp) / max(pv_MWh, 1e-9)
+    # hourly matching rate (HMR): duration-weighted share of hours with no net import
     match = float(np.sum((I_net <= 1e-6) * w)) / max(float(np.sum(w)), 1e-9)
     return dict(variant=name, pid=d.pid, cost_kEUR=cost, cost_op_kEUR=cost_op, carbon_kEUR=carbon,
-                co2_t=co2_t, SSR=ssr, LPI_ss=ssr, LPI_os=lpi_os, match_rate=match,
+                co2_t=co2_t, SSR=ssr, LPI_os=lpi_os, match_rate=match,
                 imp_MWh=inet, exp_MWh=enet, curt_MWh=sp, host_residual_MWh=residual)
 
 
